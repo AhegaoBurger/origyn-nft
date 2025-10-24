@@ -3,9 +3,13 @@
 BASE_CANISTER_PATH="./src"
 CANISTERS=("core_nft" "index_icrc7")
 
-mkdir -p "./wasm"
-curl -L -o "./wasm/storage_canister.wasm" "https://github.com/BitySA/ic-storage-canister/releases/latest/download/storage_canister.wasm"
-curl -L -o "./wasm/storage_canister.wasm.gz" "https://github.com/BitySA/ic-storage-canister/releases/latest/download/storage_canister.wasm.gz"
+# Download storage_canister from external repository
+mkdir -p "./src/storage_canister/wasm"
+curl -L -o "./src/storage_canister/wasm/storage_canister.wasm" "https://github.com/BitySA/ic-storage-canister/releases/latest/download/storage_canister.wasm"
+curl -L -o "./src/storage_canister/wasm/storage_canister_canister.wasm.gz" "https://github.com/BitySA/ic-storage-canister/releases/latest/download/storage_canister.wasm.gz"
+
+# Generate the candid file for storage_canister
+candid-extractor "./src/storage_canister/wasm/storage_canister.wasm" > "./src/storage_canister/wasm/can.did"
 
 # Build each canister
 for CANISTER in "${CANISTERS[@]}"; do
