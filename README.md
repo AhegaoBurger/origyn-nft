@@ -7,6 +7,8 @@ This repository contains the first complete and production-ready implementation 
 This project provides a complete solution for NFT management on the Internet Computer, consisting of three main components:
 
 **Core NFT Canister**: A full implementation of the ICRC7/ICRC37 standard for NFT management
+**Storage Canister**: High-performance storage solution for NFT assets and metadata
+**React UI**: Web interface for minting and managing NFTs
 **Integration Tests**: Comprehensive test suite ensuring reliability and correctness
 
 ## Key Features
@@ -59,6 +61,38 @@ export POCKET_IC_BIN=/path/to/pocket-ic
 bash ./scripts/run_integrations_tests.sh
 ```
 
+### Web UI Setup
+
+The project includes a React-based web interface for minting and managing NFTs:
+
+1. **Start local Internet Computer network:**
+```bash
+dfx start --background --clean
+```
+
+2. **Deploy all canisters (including Internet Identity):**
+```bash
+chmod +x scripts/deploy/local/deploy_all.sh
+./scripts/deploy/local/deploy_all.sh
+```
+
+3. **Install UI dependencies and start the development server:**
+```bash
+cd ui
+npm install
+npm start
+```
+
+The UI will be available at http://localhost:3000 and includes:
+- 🔐 Internet Identity authentication
+- 🎨 Interactive NFT metadata creation
+- 📤 Image/asset upload to storage
+- 🪙 NFT minting with custom metadata
+- 📋 Personal NFT gallery
+- 📱 Responsive design
+
+**Note**: The deployment script automatically generates environment variables in `ui/.env.local` with the correct canister IDs.
+
 ## Why This Implementation?
 
 This is currently the only complete implementation of the ICRC7/ICRC37 standard that:
@@ -71,9 +105,24 @@ This is currently the only complete implementation of the ICRC7/ICRC37 standard 
 
 ## This project also use 
 
-### Storage Canister
+### Storage Canister (`src/storage_canister`)
+High-performance storage solution that handles NFT assets and metadata with features like:
+- Certified HTTP asset serving
+- Stable memory storage with heap caching
+- Fine-grained access control
+- Efficient asset management
 
 [Read more about Storage Canister](https://gitlab.bity.com/bity/dev/icp/storage-canister)
+
+### React UI (`ui`)
+Modern web interface for interacting with the NFT canisters:
+- Internet Identity integration for authentication
+- Interactive forms for NFT metadata creation
+- Asset upload and management
+- NFT gallery and collection viewing
+- Real-time updates and status indicators
+
+[Read more about React UI](./ui/README.md)
 
 ### ICRC3 library
 
