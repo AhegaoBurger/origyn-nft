@@ -533,15 +533,11 @@ setup_ui_config() {
                 print_error "storage declarations not found at src/storage_canister/api/declarations"
             fi
 
-            # Get storage canister ID (if deployed)
-            STORAGE_CANISTER_ID=$(dfx canister id storage --network local 2>/dev/null || echo "not_deployed")
-
             # Generate ui/.env.local file
             print_info "Generating ui/.env.local file..."
             cat > ui/.env.local << EOF
 REACT_APP_INTERNET_IDENTITY_CANISTER_ID=$INTERNET_IDENTITY_CANISTER_ID
 REACT_APP_CORE_NFT_CANISTER_ID=$CANISTER_ID
-REACT_APP_STORAGE_CANISTER_ID=$STORAGE_CANISTER_ID
 REACT_APP_DFX_NETWORK=local
 REACT_APP_DFX_HOST=http://localhost:4943
 EOF

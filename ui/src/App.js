@@ -1,15 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { AuthClient } from "@dfinity/auth-client";
 import { createActor } from "./declarations/core_nft";
-import { createActor as createStorageActor } from "./declarations/storage";
 import MintingForm from "./components/MintingForm";
 import NFTGallery from "./components/NFTGallery";
 import ConnectionStatus from "./components/ConnectionStatus";
 
 const CORE_NFT_CANISTER_ID =
   process.env.REACT_APP_CORE_NFT_CANISTER_ID || "rrkah-fqaaa-aaaaa-aaaaq-cai";
-const STORAGE_CANISTER_ID =
-  process.env.REACT_APP_STORAGE_CANISTER_ID || "ryjl3-tyaaa-aaaaa-aaaba-cai";
 const INTERNET_IDENTITY_CANISTER_ID =
   process.env.REACT_APP_INTERNET_IDENTITY_CANISTER_ID ||
   "rdmx6-jaaaa-aaaaa-aaadq-cai";
@@ -18,7 +15,6 @@ function App() {
   const [isConnected, setIsConnected] = useState(false);
   const [principal, setPrincipal] = useState(null);
   const [coreNftActor, setCoreNftActor] = useState(null);
-  const [storageActor, setStorageActor] = useState(null);
   const [activeTab, setActiveTab] = useState("mint");
   const [nfts, setNfts] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -61,16 +57,10 @@ function App() {
         agentOptions,
       });
 
-      const storageActor = createStorageActor(STORAGE_CANISTER_ID, {
-        agentOptions,
-      });
-
-      // Initialize agents to ensure root key is fetched
+      // Initialize agent to ensure root key is fetched
       await coreNftActor.icrc7_symbol();
-      await storageActor.get_storage_size(null);
 
       setCoreNftActor(coreNftActor);
-      setStorageActor(storageActor);
     } catch (error) {
       console.error("Error creating actors:", error);
       throw error;
@@ -109,7 +99,6 @@ function App() {
       setIsConnected(false);
       setPrincipal(null);
       setCoreNftActor(null);
-      setStorageActor(null);
       setNfts([]);
       showAlert("Disconnected successfully", "info");
     } catch (error) {
@@ -209,7 +198,6 @@ function App() {
             {activeTab === "mint" && (
               <MintingForm
                 coreNftActor={coreNftActor}
-                storageActor={storageActor}
                 onMintSuccess={handleMintSuccess}
                 showAlert={showAlert}
               />
