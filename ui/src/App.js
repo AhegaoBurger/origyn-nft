@@ -117,8 +117,8 @@ function App() {
       };
       const userTokenIds = await coreNftActor.icrc7_tokens_of(
         account,
-        null,
-        null,
+        [],
+        [],
       );
       const nftDetails = await Promise.all(
         userTokenIds.map(async (tokenId) => {
