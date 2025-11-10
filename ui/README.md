@@ -77,7 +77,7 @@ Run these commands from the `example` directory:
 
 ```bash
 # Replace YOUR_II_PRINCIPAL with your actual Internet Identity principal
-YOUR_II_PRINCIPAL="vo4lw-b7qka-xbycw-2gd42-ucnbm-uo3c4-lqk45-boskv-bsbck-ar3ul-zae"
+YOUR_II_PRINCIPAL="fo2jw-eajwz-3qaox-5jo5a-4rsvp-vmsqe-jqivi-gtygu-secdo-xsk56-jqe"
 
 # Grant Minting permission
 dfx canister call nft --network local grant_permission \

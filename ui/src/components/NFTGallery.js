@@ -1,11 +1,51 @@
 import React from "react";
 
 const NFTGallery = ({ nfts, loading, onRefresh }) => {
+  // Helper function to rewrite mainnet URLs to localhost for local development
+  const rewriteUrlForLocal = (url) => {
+    if (!url) return url;
+
+    // Check if we're in local development mode
+    const isLocal = window.location.hostname === 'localhost' ||
+                    window.location.hostname === '127.0.0.1';
+
+    if (isLocal && url.includes('.raw.icp0.io')) {
+      // Extract canister ID from URL like: https://uxrrr-q7777-77774-qaaaq-cai.raw.icp0.io/path
+      const match = url.match(/https?:\/\/([a-z0-9-]+)\.raw\.icp0\.io\/(.+)/);
+      if (match) {
+        const canisterId = match[1];
+        const path = match[2];
+        const localUrl = `http://${canisterId}.localhost:4943/${path}`;
+        console.log(`[URL Rewrite] ${url} -> ${localUrl}`);
+        return localUrl;
+      }
+    }
+
+    return url;
+  };
+
   const getMetadataValue = (metadata, key) => {
+    console.log(`[getMetadataValue] Looking for key: "${key}"`);
+    console.log(`[getMetadataValue] Full metadata array:`, metadata);
+    console.log(`[getMetadataValue] JSON stringified:`, JSON.stringify(metadata));
+    console.log(`[getMetadataValue] Array.isArray(metadata):`, Array.isArray(metadata));
+    console.log(`[getMetadataValue] metadata.length:`, metadata.length);
+    if (metadata.length > 0) {
+      console.log(`[getMetadataValue] First element:`, metadata[0]);
+      console.log(`[getMetadataValue] First element type:`, typeof metadata[0], Array.isArray(metadata[0]));
+    }
+
     const item = metadata.find(([k]) => k === key);
-    return item
-      ? item.value.Text || item.value.Nat || item.value.Int || ""
-      : "";
+    console.log(`[getMetadataValue] Found item for "${key}":`, item);
+
+    if (item) {
+      const value = item[1].Text || item[1].Nat || item[1].Int || "";
+      console.log(`[getMetadataValue] Extracted value for "${key}":`, value);
+      return value;
+    }
+
+    console.log(`[getMetadataValue] No item found for "${key}", returning empty string`);
+    return "";
   };
 
   if (loading) {
@@ -60,27 +100,46 @@ const NFTGallery = ({ nfts, loading, onRefresh }) => {
       ) : (
         <div className="nft-grid">
           {nfts.map((nft) => {
+            console.log("=== Rendering NFT ===");
+            console.log("NFT ID:", nft.id.toString());
+            console.log("Full NFT object:", nft);
+            console.log("Raw metadata:", nft.metadata);
+
             const name = getMetadataValue(nft.metadata, "name");
             const description = getMetadataValue(nft.metadata, "description");
             const imageUrl = getMetadataValue(nft.metadata, "image");
             const mintedAt = getMetadataValue(nft.metadata, "minted_at");
 
+            // Rewrite image URL for local development
+            const displayImageUrl = rewriteUrlForLocal(imageUrl);
+
+            console.log("Extracted values:", { name, description, imageUrl, mintedAt });
+            console.log("Display image URL:", displayImageUrl);
+            console.log("===================");
+
             return (
               <div key={nft.id.toString()} className="nft-card">
-                {imageUrl ? (
+                {displayImageUrl ? (
                   <img
-                    src={imageUrl}
+                    src={displayImageUrl}
                     alt={name}
                     className="nft-image"
+                    onLoad={(e) => {
+                      console.log(`✓ Image loaded successfully for NFT ${nft.id}:`, displayImageUrl);
+                    }}
                     onError={(e) => {
+                      console.error(`✗ Image failed to load for NFT ${nft.id}:`, displayImageUrl);
+                      console.error("Error event:", e);
                       e.target.style.display = "none";
                       e.target.nextSibling.style.display = "flex";
                     }}
                   />
-                ) : null}
+                ) : (
+                  console.log(`No imageUrl for NFT ${nft.id}`)
+                )}
                 <div
                   style={{
-                    display: imageUrl ? "none" : "flex",
+                    display: displayImageUrl ? "none" : "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     height: "200px",

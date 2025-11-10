@@ -110,25 +110,38 @@ function App() {
     if (!coreNftActor) return;
 
     setLoading(true);
+    console.log("=== Loading NFTs ===");
     try {
       const account = {
         owner: principal,
         subaccount: [],
       };
+      console.log("Fetching token IDs for account:", account);
+
       const userTokenIds = await coreNftActor.icrc7_tokens_of(
         account,
         [],
         [],
       );
+      console.log("Found token IDs:", userTokenIds);
+
       const nftDetails = await Promise.all(
         userTokenIds.map(async (tokenId) => {
+          console.log(`Fetching metadata for token ID: ${tokenId}`);
           const metadata = await coreNftActor.icrc7_token_metadata([tokenId]);
+          console.log(`Raw metadata from canister for token ${tokenId}:`, metadata);
+          console.log(`metadata[0]:`, metadata[0]);
+          console.log(`metadata[0][0]:`, metadata[0][0]);
+          console.log(`JSON stringified metadata:`, JSON.stringify(metadata, (key, value) =>
+            typeof value === 'bigint' ? value.toString() : value
+          ));
           return {
             id: tokenId,
-            metadata: metadata[0] || [],
+            metadata: metadata[0][0] || [],
           };
         }),
       );
+      console.log("Final NFT details array:", nftDetails);
       setNfts(nftDetails);
     } catch (error) {
       console.error("Error loading NFTs:", error);
