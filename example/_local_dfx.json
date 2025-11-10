@@ -1,5 +1,9 @@
 {
   "canisters": {
+    "internet_identity": {
+      "type": "pull",
+      "id": "rdmx6-jaaaa-aaaaa-aaadq-cai"
+    },
     "nft": {
       "candid": "../src/core_nft/wasm/can.did",
       "type": "custom",

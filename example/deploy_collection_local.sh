@@ -37,9 +37,9 @@ display_info() {
     echo -e "${BLUE}╠══════════════════════════════════════════════════════════════╣${NC}"
     echo -e "${BLUE}║  This script will deploy to your local dfx replica         ║${NC}"
     echo -e "${BLUE}║                                                              ║${NC}"
-    echo -e "${BLUE}║  - Deploys to local dfx network                            ║${NC}"
-    echo -e "${BLUE}║  - Runs in test mode for development                      ║${NC}"
-    echo -e "${BLUE}║  - No cycles required                                      ║${NC}"
+    echo -e "${BLUE}║  - Deploys Internet Identity for authentication           ║${NC}"
+    echo -e "${BLUE}║  - Deploys NFT canister with test mode                    ║${NC}"
+    echo -e "${BLUE}║  - Adds cycles for storage operations                     ║${NC}"
     echo -e "${BLUE}║  - Perfect for testing and development                    ║${NC}"
     echo -e "${BLUE}╚══════════════════════════════════════════════════════════════╝${NC}"
     echo ""
@@ -85,6 +85,36 @@ start_local_replica() {
             exit 1
         fi
     fi
+}
+
+# Deploy Internet Identity for authentication
+deploy_internet_identity() {
+    print_info "Deploying Internet Identity..."
+
+    # Check if Internet Identity is already deployed
+    if dfx canister id internet_identity --network local &> /dev/null; then
+        print_success "Internet Identity already deployed"
+        INTERNET_IDENTITY_CANISTER_ID=$(dfx canister id internet_identity --network local)
+    else
+        # Deploy Internet Identity from dfx dependencies
+        if dfx deps deploy internet_identity --network local; then
+            print_success "Internet Identity deployed successfully"
+            INTERNET_IDENTITY_CANISTER_ID=$(dfx canister id internet_identity --network local)
+        else
+            print_warning "Failed to deploy Internet Identity via deps, trying direct deployment..."
+            # Fallback: Try to create and deploy as regular canister
+            dfx canister create internet_identity --network local || true
+            INTERNET_IDENTITY_CANISTER_ID=$(dfx canister id internet_identity --network local 2>/dev/null || echo "")
+
+            if [ -z "$INTERNET_IDENTITY_CANISTER_ID" ]; then
+                print_warning "Internet Identity deployment failed, authentication features may not work"
+                INTERNET_IDENTITY_CANISTER_ID="rdmx6-jaaaa-aaaaa-aaadq-cai"  # Default local II canister ID
+            fi
+        fi
+    fi
+
+    export INTERNET_IDENTITY_CANISTER_ID
+    print_info "Internet Identity Canister ID: $INTERNET_IDENTITY_CANISTER_ID"
 }
 
 # Setup environment variables
@@ -186,6 +216,21 @@ deploy_collection() {
     fi
 }
 
+# Add cycles to NFT canister for storage operations
+fund_canister_cycles() {
+    print_info "Adding cycles to NFT canister for storage operations..."
+
+    # In local development, canisters need sufficient cycles to create storage subcanisters
+    # The NFT canister requires 5T cycles to create each storage subcanister
+    if dfx ledger fabricate-cycles --canister nft --t 10 --network local; then
+        print_success "Added 10 trillion cycles to NFT canister"
+        print_info "This allows the canister to create storage subcanisters for file uploads"
+    else
+        print_warning "Failed to add cycles. File uploads may fail."
+        print_info "You can manually add cycles later with: dfx ledger fabricate-cycles --canister nft --t 10 --network local"
+    fi
+}
+
 # Update canister_ids.json
 update_canister_ids() {
     print_info "Updating canister_ids.json file..."
@@ -228,13 +273,21 @@ test_upload() {
 
     # Check if test file exists
     if [ -f "origynlogo.png" ]; then
-        ../target/release/origyn_icrc7_cmdlinetools \
+        print_info "Uploading origynlogo.png (this will create a storage subcanister)..."
+
+        if ../target/release/origyn_icrc7_cmdlinetools \
             --network local \
             --identity "$IDENTITY_FILE" \
             --canister "$CANISTER_ID" \
-            upload-file ./origynlogo.png origynlogo.png
-
-        print_success "Upload test successful"
+            upload-file ./origynlogo.png origynlogo.png; then
+            print_success "Upload test successful"
+            print_info "A storage subcanister was automatically created by the NFT canister"
+        else
+            print_error "Upload test failed"
+            print_warning "This is usually due to insufficient cycles. Make sure cycles were added successfully."
+            print_info "You can retry the upload after adding more cycles:"
+            print_info "  dfx ledger fabricate-cycles --canister nft --t 10 --network local"
+        fi
     else
         print_warning "origynlogo.png file not found, upload test skipped"
     fi
@@ -403,6 +456,56 @@ mint_predefined_collection() {
     done
 }
 
+# Setup UI configuration (optional)
+setup_ui_config() {
+    print_info "Setting up UI configuration..."
+
+    # Ask if user wants to configure the UI
+    read -p "Do you want to generate UI configuration files? (y/n): " SETUP_UI
+
+    if [[ $SETUP_UI =~ ^[Yy]$ ]]; then
+        # Check if UI directory exists
+        if [ -d "../ui" ]; then
+            print_info "Generating ui/.env.local file..."
+
+            cat > ../ui/.env.local << EOF
+REACT_APP_INTERNET_IDENTITY_CANISTER_ID=$INTERNET_IDENTITY_CANISTER_ID
+REACT_APP_CORE_NFT_CANISTER_ID=$CANISTER_ID
+REACT_APP_STORAGE_CANISTER_ID=not_required
+REACT_APP_DFX_NETWORK=local
+REACT_APP_DFX_HOST=http://localhost:4943
+EOF
+
+            print_success "UI environment file created at ../ui/.env.local"
+
+            # Generate declarations
+            print_info "Generating JavaScript declarations for UI..."
+            cd ..
+            if dfx generate nft --network local; then
+                print_success "Declarations generated successfully"
+
+                # Check if declarations need to be copied/linked
+                if [ -d "src/core_nft/api/declarations" ] && [ ! -d "ui/src/declarations/core_nft" ]; then
+                    print_info "Creating declarations directory for UI..."
+                    mkdir -p ui/src/declarations
+                    cp -r src/core_nft/api/declarations ui/src/declarations/core_nft
+                    print_success "Declarations copied to ui/src/declarations/core_nft"
+                fi
+            else
+                print_warning "Failed to generate declarations"
+            fi
+            cd example
+
+            print_success "UI configuration complete"
+            print_info "You can now run the UI with: cd ../ui && npm start"
+        else
+            print_warning "UI directory not found at ../ui, skipping UI configuration"
+        fi
+    else
+        print_info "UI configuration skipped"
+    fi
+}
+
 # Display final information
 show_final_info() {
     print_success "=== LOCAL DEPLOYMENT COMPLETED ==="
@@ -410,7 +513,8 @@ show_final_info() {
     echo "Your collection information:"
     echo "  Name: $COLLECTION_NAME"
     echo "  Symbol: $COLLECTION_SYMBOL"
-    echo "  Canister ID: $CANISTER_ID"
+    echo "  NFT Canister ID: $CANISTER_ID"
+    echo "  Internet Identity ID: $INTERNET_IDENTITY_CANISTER_ID"
     echo "  Principal: $YOUR_PRINCIPAL_ID"
     echo "  Network: local"
     echo "  Test Mode: true"
@@ -418,13 +522,21 @@ show_final_info() {
     echo "Created files:"
     echo "  - canister_ids.json (updated)"
     echo "  - $IDENTITY_FILE (PEM identity)"
+    if [ -f "../ui/.env.local" ]; then
+        echo "  - ../ui/.env.local (UI configuration)"
+    fi
     echo ""
     echo "Environment variables to use:"
     echo "  export CANISTER_ID=\"$CANISTER_ID\""
+    echo "  export INTERNET_IDENTITY_CANISTER_ID=\"$INTERNET_IDENTITY_CANISTER_ID\""
     echo "  export YOUR_PRINCIPAL_ID=\"$YOUR_PRINCIPAL_ID\""
     echo "  export COLLECTION_NAME=\"$COLLECTION_NAME\""
     echo "  export COLLECTION_SYMBOL=\"$COLLECTION_SYMBOL\""
     echo "  export IDENTITY_FILE=\"$IDENTITY_FILE\""
+    echo ""
+    echo "Important URLs:"
+    echo "  NFT Canister Dashboard: http://localhost:8000/?canisterId=$CANISTER_ID"
+    echo "  Internet Identity: http://$INTERNET_IDENTITY_CANISTER_ID.localhost:4943"
     echo ""
     echo "Useful commands:"
     echo "  # Check total supply"
@@ -436,6 +548,15 @@ show_final_info() {
     echo "  # List all tokens"
     echo "  dfx canister call nft --network local icrc7_tokens '(null, null)'"
     echo ""
+    echo "  # Check storage subcanisters (created automatically when uploading files)"
+    echo "  dfx canister call nft --network local get_all_storage_subcanisters '()'"
+    echo ""
+    echo "  # Check canister cycles balance"
+    echo "  dfx canister status nft --network local"
+    echo ""
+    echo "  # Add more cycles if needed"
+    echo "  dfx ledger fabricate-cycles --canister nft --t 10 --network local"
+    echo ""
     echo "  # Mint additional NFTs"
     echo "  ../target/release/origyn_icrc7_cmdlinetools \\"
     echo "    --network local \\"
@@ -446,8 +567,15 @@ show_final_info() {
     echo "    --name \"My NFT\" \\"
     echo "    --interactive"
     echo ""
-    echo "  # Access local replica dashboard"
-    echo "  http://localhost:8000/?canisterId=$CANISTER_ID"
+    echo "  # Upload files"
+    echo "  ../target/release/origyn_icrc7_cmdlinetools \\"
+    echo "    --network local \\"
+    echo "    --identity \$IDENTITY_FILE \\"
+    echo "    --canister \$CANISTER_ID \\"
+    echo "    upload-file <file_path> <remote_name>"
+    echo ""
+    print_info "Note: Storage subcanisters are created automatically when you upload files."
+    print_info "Each subcanister requires 5T cycles, which were pre-funded during deployment."
     echo ""
 }
 
@@ -459,12 +587,15 @@ main() {
     display_info
     check_prerequisites
     start_local_replica
+    deploy_internet_identity
     setup_environment
     deploy_collection
+    fund_canister_cycles
     update_canister_ids
     build_cli_tool
     test_upload
     setup_nft_minting
+    setup_ui_config
     show_final_info
 }
 
