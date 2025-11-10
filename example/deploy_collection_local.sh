@@ -91,27 +91,43 @@ start_local_replica() {
 deploy_internet_identity() {
     print_info "Deploying Internet Identity..."
 
-    # Check if Internet Identity is already deployed
-    if dfx canister id internet_identity --network local &> /dev/null; then
-        print_success "Internet Identity already deployed"
+    # dfx deps commands must run from project root where dfx.json exists
+    cd ..
+
+    # Initialize dfx dependencies system
+    print_info "Initializing dfx dependencies..."
+    if dfx deps init &> /dev/null; then
+        print_success "Dependencies initialized"
+    else
+        print_warning "Dependencies already initialized or init failed"
+    fi
+
+    # Pull Internet Identity canister
+    print_info "Pulling Internet Identity canister..."
+    if dfx deps pull &> /dev/null; then
+        print_success "Internet Identity canister pulled"
+    else
+        print_warning "Failed to pull Internet Identity, it may already be cached"
+    fi
+
+    # Deploy Internet Identity from dfx dependencies
+    if dfx deps deploy internet_identity --network local; then
+        print_success "Internet Identity deployed successfully"
         INTERNET_IDENTITY_CANISTER_ID=$(dfx canister id internet_identity --network local)
     else
-        # Deploy Internet Identity from dfx dependencies
-        if dfx deps deploy internet_identity --network local; then
-            print_success "Internet Identity deployed successfully"
-            INTERNET_IDENTITY_CANISTER_ID=$(dfx canister id internet_identity --network local)
-        else
-            print_warning "Failed to deploy Internet Identity via deps, trying direct deployment..."
-            # Fallback: Try to create and deploy as regular canister
-            dfx canister create internet_identity --network local || true
-            INTERNET_IDENTITY_CANISTER_ID=$(dfx canister id internet_identity --network local 2>/dev/null || echo "")
+        print_warning "Failed to deploy Internet Identity via deps, trying direct deployment..."
+        # Fallback: Try to create and deploy as regular canister
+        dfx canister create internet_identity --network local || true
+        INTERNET_IDENTITY_CANISTER_ID=$(dfx canister id internet_identity --network local 2>/dev/null || echo "")
 
-            if [ -z "$INTERNET_IDENTITY_CANISTER_ID" ]; then
-                print_warning "Internet Identity deployment failed, authentication features may not work"
-                INTERNET_IDENTITY_CANISTER_ID="rdmx6-jaaaa-aaaaa-aaadq-cai"  # Default local II canister ID
-            fi
+        if [ -z "$INTERNET_IDENTITY_CANISTER_ID" ]; then
+            print_warning "Internet Identity deployment failed, authentication features may not work"
+            INTERNET_IDENTITY_CANISTER_ID="rdmx6-jaaaa-aaaaa-aaadq-cai"  # Default local II canister ID
         fi
     fi
+
+    # Return to example directory
+    cd example
 
     export INTERNET_IDENTITY_CANISTER_ID
     print_info "Internet Identity Canister ID: $INTERNET_IDENTITY_CANISTER_ID"
@@ -466,34 +482,73 @@ setup_ui_config() {
     if [[ $SETUP_UI =~ ^[Yy]$ ]]; then
         # Check if UI directory exists
         if [ -d "../ui" ]; then
-            print_info "Generating ui/.env.local file..."
+            # Change to project root directory
+            cd ..
 
-            cat > ../ui/.env.local << EOF
+            # Ensure build script has run to download storage WASM
+            print_info "Checking for storage canister WASM files..."
+            if [ ! -f "src/storage_canister/wasm/storage_canister_canister.wasm.gz" ]; then
+                print_info "Building canisters and downloading storage WASM..."
+                if ./scripts/build.sh; then
+                    print_success "Build completed"
+                else
+                    print_warning "Build script failed, continuing anyway..."
+                fi
+            fi
+
+            # Generate declarations for core_nft
+            print_info "Generating declarations for core_nft..."
+            if dfx generate core_nft --network local; then
+                print_success "core_nft declarations generated"
+            else
+                print_warning "Failed to generate core_nft declarations"
+            fi
+
+            # Generate declarations for storage
+            print_info "Generating declarations for storage..."
+            if dfx generate storage --network local; then
+                print_success "storage declarations generated"
+            else
+                print_warning "Failed to generate storage declarations"
+            fi
+
+            # Create UI declarations directory
+            mkdir -p ui/src/declarations
+
+            # Copy core_nft declarations
+            if [ -d "src/core_nft/api/declarations" ]; then
+                print_info "Copying core_nft declarations to UI..."
+                cp -r src/core_nft/api/declarations ui/src/declarations/core_nft
+                print_success "core_nft declarations copied to ui/src/declarations/core_nft"
+            else
+                print_error "core_nft declarations not found at src/core_nft/api/declarations"
+            fi
+
+            # Copy storage declarations
+            if [ -d "src/storage_canister/api/declarations" ]; then
+                print_info "Copying storage declarations to UI..."
+                cp -r src/storage_canister/api/declarations ui/src/declarations/storage
+                print_success "storage declarations copied to ui/src/declarations/storage"
+            else
+                print_error "storage declarations not found at src/storage_canister/api/declarations"
+            fi
+
+            # Get storage canister ID (if deployed)
+            STORAGE_CANISTER_ID=$(dfx canister id storage --network local 2>/dev/null || echo "not_deployed")
+
+            # Generate ui/.env.local file
+            print_info "Generating ui/.env.local file..."
+            cat > ui/.env.local << EOF
 REACT_APP_INTERNET_IDENTITY_CANISTER_ID=$INTERNET_IDENTITY_CANISTER_ID
 REACT_APP_CORE_NFT_CANISTER_ID=$CANISTER_ID
-REACT_APP_STORAGE_CANISTER_ID=not_required
+REACT_APP_STORAGE_CANISTER_ID=$STORAGE_CANISTER_ID
 REACT_APP_DFX_NETWORK=local
 REACT_APP_DFX_HOST=http://localhost:4943
 EOF
 
-            print_success "UI environment file created at ../ui/.env.local"
+            print_success "UI environment file created at ui/.env.local"
 
-            # Generate declarations
-            print_info "Generating JavaScript declarations for UI..."
-            cd ..
-            if dfx generate nft --network local; then
-                print_success "Declarations generated successfully"
-
-                # Check if declarations need to be copied/linked
-                if [ -d "src/core_nft/api/declarations" ] && [ ! -d "ui/src/declarations/core_nft" ]; then
-                    print_info "Creating declarations directory for UI..."
-                    mkdir -p ui/src/declarations
-                    cp -r src/core_nft/api/declarations ui/src/declarations/core_nft
-                    print_success "Declarations copied to ui/src/declarations/core_nft"
-                fi
-            else
-                print_warning "Failed to generate declarations"
-            fi
+            # Return to example directory
             cd example
 
             print_success "UI configuration complete"
