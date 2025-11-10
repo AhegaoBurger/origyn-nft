@@ -198,6 +198,7 @@ function App() {
             {activeTab === "mint" && (
               <MintingForm
                 coreNftActor={coreNftActor}
+                principal={principal}
                 onMintSuccess={handleMintSuccess}
                 showAlert={showAlert}
               />
