@@ -121,12 +121,17 @@ const MintingForm = ({
     }));
   };
 
-  const handleImageUpload = async (e) => {
+  // Helper to check if file is a video
+  const isVideoFile = (file) => {
+    return file && file.type.startsWith('video/');
+  };
+
+  const handleMediaUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
     if (file.size > 10 * 1024 * 1024) {
-      showAlert("Image size must be less than 10MB", "error");
+      showAlert("File size must be less than 10MB", "error");
       return;
     }
 
@@ -515,8 +520,8 @@ const MintingForm = ({
         </div>
 
         <div className="form-group">
-          <label htmlFor="image">
-            Image (Optional)
+          <label htmlFor="media">
+            Media (Optional - Image or Video)
             {!permissions.hasUpdateUploads && permissions.checked && (
               <span style={{ color: "#e74c3c", marginLeft: "8px", fontSize: "0.9em" }}>
                 - Upload disabled (missing permission)
@@ -525,23 +530,36 @@ const MintingForm = ({
           </label>
           <input
             type="file"
-            id="image"
-            accept="image/*"
-            onChange={handleImageUpload}
+            id="media"
+            accept="image/*,video/*"
+            onChange={handleMediaUpload}
             disabled={isMinting || !permissions.hasUpdateUploads}
           />
           {formData.imagePreview && (
             <div style={{ marginTop: "10px" }}>
-              <img
-                src={formData.imagePreview}
-                alt="Preview"
-                style={{
-                  maxWidth: "200px",
-                  maxHeight: "200px",
-                  borderRadius: "8px",
-                  border: "2px solid #e1e5e9",
-                }}
-              />
+              {isVideoFile(formData.image) ? (
+                <video
+                  src={formData.imagePreview}
+                  controls
+                  style={{
+                    maxWidth: "200px",
+                    maxHeight: "200px",
+                    borderRadius: "8px",
+                    border: "2px solid #e1e5e9",
+                  }}
+                />
+              ) : (
+                <img
+                  src={formData.imagePreview}
+                  alt="Preview"
+                  style={{
+                    maxWidth: "200px",
+                    maxHeight: "200px",
+                    borderRadius: "8px",
+                    border: "2px solid #e1e5e9",
+                  }}
+                />
+              )}
             </div>
           )}
         </div>

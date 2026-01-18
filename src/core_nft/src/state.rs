@@ -84,6 +84,7 @@ pub struct Data {
     pub sub_canister_manager: StorageSubCanisterManager,
     pub last_token_id: Nat,
     pub media_redirections: HashMap<String, String>,
+    pub base_url: Option<String>,
 }
 
 impl Data {
@@ -108,6 +109,7 @@ impl Data {
         max_canister_storage_threshold: Option<Nat>,
         permitted_drift: Option<Nat>,
         approval_init: InitApprovalsArg,
+        base_url: Option<String>,
     ) -> Self {
         let mut authorized_principals = vec![];
 
@@ -172,6 +174,7 @@ impl Data {
             sub_canister_manager,
             last_token_id: Nat::from(1u64), // 0 is the reserved value for the collection metadata
             media_redirections: HashMap::new(),
+            base_url,
         }
     }
 
@@ -251,6 +254,7 @@ impl Clone for Data {
             sub_canister_manager: self.sub_canister_manager.clone(),
             last_token_id: self.last_token_id.clone(),
             media_redirections: self.media_redirections.clone(),
+            base_url: self.base_url.clone(),
         }
     }
 }

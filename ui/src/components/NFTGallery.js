@@ -1,6 +1,14 @@
 import React from "react";
 
 const NFTGallery = ({ nfts, loading, onRefresh }) => {
+  // Helper function to check if URL is a video by extension
+  const isVideoUrl = (url) => {
+    if (!url) return false;
+    const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov', '.avi', '.mkv'];
+    const lowerUrl = url.toLowerCase();
+    return videoExtensions.some(ext => lowerUrl.includes(ext));
+  };
+
   // Helper function to rewrite mainnet URLs to localhost for local development
   const rewriteUrlForLocal = (url) => {
     if (!url) return url;
@@ -117,23 +125,45 @@ const NFTGallery = ({ nfts, loading, onRefresh }) => {
             console.log("Display image URL:", displayImageUrl);
             console.log("===================");
 
+            const isVideo = isVideoUrl(imageUrl);
+
             return (
               <div key={nft.id.toString()} className="nft-card">
                 {displayImageUrl ? (
-                  <img
-                    src={displayImageUrl}
-                    alt={name}
-                    className="nft-image"
-                    onLoad={(e) => {
-                      console.log(`✓ Image loaded successfully for NFT ${nft.id}:`, displayImageUrl);
-                    }}
-                    onError={(e) => {
-                      console.error(`✗ Image failed to load for NFT ${nft.id}:`, displayImageUrl);
-                      console.error("Error event:", e);
-                      e.target.style.display = "none";
-                      e.target.nextSibling.style.display = "flex";
-                    }}
-                  />
+                  isVideo ? (
+                    <video
+                      src={displayImageUrl}
+                      className="nft-image"
+                      controls
+                      muted
+                      loop
+                      playsInline
+                      onLoadedData={(e) => {
+                        console.log(`✓ Video loaded successfully for NFT ${nft.id}:`, displayImageUrl);
+                      }}
+                      onError={(e) => {
+                        console.error(`✗ Video failed to load for NFT ${nft.id}:`, displayImageUrl);
+                        console.error("Error event:", e);
+                        e.target.style.display = "none";
+                        e.target.nextSibling.style.display = "flex";
+                      }}
+                    />
+                  ) : (
+                    <img
+                      src={displayImageUrl}
+                      alt={name}
+                      className="nft-image"
+                      onLoad={(e) => {
+                        console.log(`✓ Image loaded successfully for NFT ${nft.id}:`, displayImageUrl);
+                      }}
+                      onError={(e) => {
+                        console.error(`✗ Image failed to load for NFT ${nft.id}:`, displayImageUrl);
+                        console.error("Error event:", e);
+                        e.target.style.display = "none";
+                        e.target.nextSibling.style.display = "flex";
+                      }}
+                    />
+                  )
                 ) : (
                   console.log(`No imageUrl for NFT ${nft.id}`)
                 )}
